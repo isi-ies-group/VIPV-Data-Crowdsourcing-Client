@@ -225,12 +225,13 @@ class AppMain : Application(), ComponentCallbacks2 {
             return
         } else {
             Log.i(TAG, "Starting beacon scan service")
-            loggingSession.clear()
-            loggingSession.startInstant = Instant.now()
-            sessionRunning.value = true
+            sessionRunning.postValue(true)
+            thread {
+                loggingSession.startSession()
 
-            val serviceIntent = Intent(this, ForegroundBeaconScanService::class.java)
-            startService(serviceIntent)
+                val serviceIntent = Intent(this, ForegroundBeaconScanService::class.java)
+                startService(serviceIntent)
+            }
             handler.post(statusUpdateRunnable) // Start periodic status updates of the beacon statuses
         }
     }
@@ -242,7 +243,6 @@ class AppMain : Application(), ComponentCallbacks2 {
     fun stopBeaconScanning() {
         // Create a coroutine to write the session data to a file
         thread {
-            loggingSession.stopInstant = Instant.now()
             val serviceIntent = Intent(this, ForegroundBeaconScanService::class.java)
             stopService(serviceIntent)
             loggingSession.concludeSession()

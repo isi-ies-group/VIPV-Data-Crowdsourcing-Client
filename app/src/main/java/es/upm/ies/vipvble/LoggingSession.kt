@@ -34,18 +34,18 @@ object LoggingSession {
     /**
      * Start and stop instants of the session.
      */
-    var startInstant: Instant? = null
-    var stopInstant: Instant? = null
+    private var startInstant: Instant? = null
+    private var stopInstant: Instant? = null
 
     /**
      * File to store data temporarily.
      */
-    var bodyFile: File? = null
+    private var bodyFile: File? = null
 
     /**
      * Cache directory to store the session files.
      */
-    var cacheDir: File? = null
+    private var cacheDir: File? = null
 
     /**
      * Initialize the singleton with the cache directory.
@@ -192,10 +192,19 @@ object LoggingSession {
     }
 
     /**
+     * Begins a new session.
+     */
+    fun startSession() {
+        clear()
+        startInstant = Instant.now()
+    }
+
+    /**
      * Ends the current session by saving it to the cache dir.
      * @return The file with the session data.
      */
     fun concludeSession(): File? {
+        stopInstant = Instant.now()
         return saveSession()
     }
 
