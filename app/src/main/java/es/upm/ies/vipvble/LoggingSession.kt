@@ -129,7 +129,7 @@ object LoggingSession {
      */
     fun freeDataTemporarily() {
         if (bodyFile == null) {
-            bodyFile = File.createTempFile("VIPV_body_", ".txt", cacheDir)
+            bodyFile = File.createTempFile("cached_body_", ".txt", cacheDir)
         }
         // append the latest data to the temporary file
         bodyFile!!.outputStream().writer(Charsets.UTF_8).use {
