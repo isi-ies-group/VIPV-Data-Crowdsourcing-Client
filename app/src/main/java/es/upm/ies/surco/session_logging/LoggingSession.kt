@@ -132,8 +132,7 @@ object LoggingSession {
      */
     fun clear() {
         beaconMap.clear()
-        (beacons as MutableLiveData).value = ArrayList(beaconMap.values)
-        beacons.notifyObservers()
+        (beacons as MutableLiveData).notifyObservers()
         startZonedDateTime = null
         stopZonedDateTime = null
     }
@@ -192,7 +191,7 @@ object LoggingSession {
 
         var outFile = File(
             cacheDir,
-            "${SESSION_FILE_PREFIX}${startZonedDateTime}-${stopZonedDateTime}${SESSION_FILE_EXTENSION}"
+            "${SESSION_FILE_PREFIX}${startZonedDateTime!!.toInstant()}-${stopZonedDateTime!!.toInstant()}${SESSION_FILE_EXTENSION}"
         )
 
         outFile.outputStream().writer(Charsets.UTF_8).use {
