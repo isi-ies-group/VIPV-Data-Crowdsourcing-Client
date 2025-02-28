@@ -49,7 +49,7 @@ class SessionWriterUT {
 
         var body = File.createTempFile("VIPV_", ".txt")
         val outputStreamWriter = body.outputStream().writer()
-        SessionWriter.V2.createJSONHeader(
+        SessionWriter.V3.createJSONHeader(
             outputStreamWriter,
             TimeZone.getTimeZone("UTC"),
             beacons,
@@ -60,7 +60,7 @@ class SessionWriterUT {
 
         val expected = """
         {
-          "version_scheme": 2,
+          "version_scheme": 3,
           "timezone": "UTC",
           "start_localized_instant": "2021-10-01T12:00:00Z",
           "finish_localized_instant": "2021-10-01T12:30:00Z",
@@ -102,20 +102,29 @@ class SessionWriterUT {
         beacons.add(beacon0)
         beacon0.sensorData.value?.add(
             SensorEntry(
+                Instant.parse("2021-10-01T12:00:00Z"),
                 127,
-                Instant.parse("2021-10-01T12:00:00Z")
+                14.0f,
+                15.0f,
+                65.0f,
             )
         )
         beacon0.sensorData.value?.add(
             SensorEntry(
+                Instant.parse("2021-10-01T12:00:01Z"),
                 126,
-                Instant.parse("2021-10-01T12:00:01Z")
+                14.1f,
+                15.1f,
+                65.1f,
             )
         )
         beacon0.sensorData.value?.add(
             SensorEntry(
+                Instant.parse("2021-10-01T12:00:02Z"),
                 125,
-                Instant.parse("2021-10-01T12:00:02Z")
+                14.2f,
+                15.2f,
+                65.2f,
             )
         )
 
@@ -123,37 +132,46 @@ class SessionWriterUT {
         beacons.add(beacon1)
         beacon1.sensorData.value?.add(
             SensorEntry(
+                Instant.parse("2021-10-01T12:00:00Z"),
                 127,
-                Instant.parse("2021-10-01T12:00:00Z")
+                14.0f,
+                15.0f,
+                65.0f,
             )
         )
         beacon1.sensorData.value?.add(
             SensorEntry(
+                Instant.parse("2021-10-01T12:00:01Z"),
                 128,
-                Instant.parse("2021-10-01T12:00:01Z")
+                14.1f,
+                15.1f,
+                65.1f,
             )
         )
         beacon1.sensorData.value?.add(
             SensorEntry(
+                Instant.parse("2021-10-01T12:00:02Z"),
                 129,
-                Instant.parse("2021-10-01T12:00:02Z")
+                14.2f,
+                15.2f,
+                65.2f,
             )
         )
 
         val file = File.createTempFile("VIPV_", ".txt")
         val outputStreamWriter = file.outputStream().writer()
-        SessionWriter.V2.appendCsvBeaconHeader(outputStreamWriter)
-        SessionWriter.V2.appendCsvBodyFromBeacons(outputStreamWriter, TimeZone.getTimeZone("UTC"), beacons)
+        SessionWriter.V3.appendCsvHeader(outputStreamWriter)
+        SessionWriter.V3.appendCsvBodyFromData(outputStreamWriter, TimeZone.getTimeZone("UTC"), beacons)
         outputStreamWriter.flush()
 
         val expected = """
-        beacon_id,localized_timestamp,data
-        0x010203040506,12:00:00.000,127
-        0x010203040506,12:00:01.000,126
-        0x010203040506,12:00:02.000,125
-        0x010203040507,12:00:00.000,127
-        0x010203040507,12:00:01.000,128
-        0x010203040507,12:00:02.000,129
+        beacon_id,localized_timestamp,data,latitude,longitude,azimuth
+        0x010203040506,12:00:00.000,127,14.0,15.0,65.0
+        0x010203040506,12:00:01.000,126,14.1,15.1,65.1
+        0x010203040506,12:00:02.000,125,14.2,15.2,65.2
+        0x010203040507,12:00:00.000,127,14.0,15.0,65.0
+        0x010203040507,12:00:01.000,128,14.1,15.1,65.1
+        0x010203040507,12:00:02.000,129,14.2,15.2,65.2
         
         """.trimIndent()  // remove leading whitespaces; last line is the trailing newline
 

@@ -4,6 +4,10 @@ import android.app.*
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
@@ -24,7 +28,7 @@ import org.altbeacon.beacon.service.Callback
 import java.time.Instant
 import kotlin.concurrent.thread
 
-class ForegroundBeaconScanService : BeaconService() {
+class ForegroundBeaconScanService : BeaconService(), SensorEventListener {
     private lateinit var appMain: AppMain
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -41,31 +45,35 @@ class ForegroundBeaconScanService : BeaconService() {
         "all-beacons", null, null, null
     )  // criteria for identifying beacons
 
-    val rangingCallback: Callback =
-        object : Callback("es.upm.ies.surco") {
-            override fun call(context: Context?, dataName: String?, data: Bundle?): Boolean {
-                val timestamp = Instant.now()
-                // get the beacons from the bundle
-                // if the SDK version is 32 or higher, use the new method to get the beacons
-                // as the old method is deprecated as type-unsafe
-                val beacons = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    data?.getParcelableArrayList("beacons", Beacon::class.java) ?: return false
-                } else {
-                    @Suppress("DEPRECATION")  // Deprecated in API 32
-                    data?.getParcelableArrayList<Beacon>("beacons") ?: return false
-                }
-                // add the beacons to the AppMain singleton
-                appMain.addBeaconCollectionData(beacons, timestamp)
-                return true
+    val rangingCallback: Callback = object : Callback("es.upm.ies.surco") {
+        override fun call(context: Context?, dataName: String?, data: Bundle?): Boolean {
+            val timestamp = Instant.now()
+            // get the beacons from the bundle
+            // if the SDK version is 32 or higher, use the new method to get the beacons
+            // as the old method is deprecated as type-unsafe
+            val beacons = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                data?.getParcelableArrayList("beacons", Beacon::class.java) ?: return false
+            } else {
+                @Suppress("DEPRECATION")  // Deprecated in API 32
+                data?.getParcelableArrayList<Beacon>("beacons") ?: return false
             }
+            // add the beacons to the AppMain singleton
+            appMain.addBeaconCollectionData(beacons, timestamp, latitude, longitude, getCompassAzimuth())
+            return true
         }
-    val monitoringCallback: Callback =
-        object : Callback("es.upm.ies.surco") {
-            override fun call(context: Context?, dataName: String?, data: Bundle?): Boolean {
-                Log.i(TAG, "Monitoring callback called with dataName: $dataName")
-                return true
-            }
+    }
+    val monitoringCallback: Callback = object : Callback("es.upm.ies.surco") {
+        override fun call(context: Context?, dataName: String?, data: Bundle?): Boolean {
+            Log.i(TAG, "Monitoring callback called with dataName: $dataName")
+            return true
         }
+    }
+
+    /**
+     * Latitude and longitude of the user's location.
+     */
+    private var latitude: Float = Float.NaN
+    private var longitude: Float = Float.NaN
 
     /**
      * Flag to indicate if the watchdog thread is running.
@@ -115,18 +123,17 @@ class ForegroundBeaconScanService : BeaconService() {
         // Setup location callback
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
-                // get the timestamp of the location
-                val timestamp = Instant.now()
-                // latitude and longitude
-                val latitude = locationResult.lastLocation?.latitude?.toFloat() ?: Float.NaN
-                val longitude = locationResult.lastLocation?.longitude?.toFloat() ?: Float.NaN
-                // add the location to the AppMain singleton
-                appMain.addLocationDataEntry(timestamp, latitude, longitude)
+                // save latitude and longitude for later use on data entries addition
+                latitude = locationResult.lastLocation?.latitude?.toFloat() ?: Float.NaN
+                longitude = locationResult.lastLocation?.longitude?.toFloat() ?: Float.NaN
             }
         }
 
         // Create all notification channels
         createNotificationChannels()
+
+        // Register listeners for sensors
+        startSensorUpdates()
 
         // Start monitoring Bluetooth and GPS connectivity
         startForegroundServiceWithNotification()
@@ -144,6 +151,7 @@ class ForegroundBeaconScanService : BeaconService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        stopSensorUpdates()
         stopBluetoothAndGpsWatchdog()
         stopLocationUpdates()
         // Stop ranging and monitoring beacons
@@ -302,6 +310,91 @@ class ForegroundBeaconScanService : BeaconService() {
         notificationManager.notify(AppMain.NOTIFICATION_NO_LOCATION_OR_BLUETOOTH_ID, notification)
 
         lastNotificationState = currentState
+    }
+
+
+    /**
+     * Get compass azimuth angle in degrees.
+     */
+    private val sensorManager: SensorManager by lazy {
+        getSystemService(SENSOR_SERVICE) as SensorManager
+    }
+    private val accelerometer: Sensor? by lazy {
+        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    }
+    private val magnetometer: Sensor? by lazy {
+        sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+    }
+    private var magnetometerAccuracyStatus: Int = SensorManager.SENSOR_STATUS_UNRELIABLE
+    private var accelerometerAccuracyStatus: Int = SensorManager.SENSOR_STATUS_UNRELIABLE
+    private val rotationMatrix = FloatArray(9)
+    private val orientationAngles = FloatArray(3)
+    private val lastAccelerometerReading = FloatArray(3)
+    private val lastMagnetometerReading = FloatArray(3)
+    fun getCompassAzimuth(): Float {
+        if (!appMain.hasCompassSensor) return Float.NaN
+
+        // get last reading of accelerometer and magnetometer
+        SensorManager.getRotationMatrix(
+            rotationMatrix, null, lastAccelerometerReading, lastMagnetometerReading
+        )
+        SensorManager.getOrientation(rotationMatrix, orientationAngles)
+        val azimuthInRadians = orientationAngles[0]
+        return Math.toDegrees(azimuthInRadians.toDouble()).toFloat()
+    }
+
+    /**
+     * Called when the sensor values change.
+     */
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event == null) return
+
+        when (event.sensor.type) {
+            Sensor.TYPE_ACCELEROMETER -> {
+                // Update the last accelerometer reading
+                System.arraycopy(
+                    event.values, 0, lastAccelerometerReading, 0, lastAccelerometerReading.size
+                )
+            }
+
+            Sensor.TYPE_MAGNETIC_FIELD -> {
+                // Update the last magnetometer reading
+                System.arraycopy(
+                    event.values, 0, lastMagnetometerReading, 0, lastMagnetometerReading.size
+                )
+            }
+        }
+    }
+
+    /**
+     * Called when the sensor accuracy changes.
+     */
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        if (sensor?.type == Sensor.TYPE_MAGNETIC_FIELD) {
+            magnetometerAccuracyStatus = accuracy
+        } else if (sensor?.type == Sensor.TYPE_ACCELEROMETER) {
+            accelerometerAccuracyStatus = accuracy
+        }
+        appMain.minSensorAccuracy.postValue(
+            minOf(
+                magnetometerAccuracyStatus, accelerometerAccuracyStatus
+            )
+        )
+    }
+
+    /**
+     * Start sensor updates.
+     */
+    fun startSensorUpdates() {
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+        sensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_NORMAL)
+    }
+
+    /**
+     * Stop sensor updates.
+     */
+    fun stopSensorUpdates() {
+        sensorManager.unregisterListener(this)
     }
 
     companion object {

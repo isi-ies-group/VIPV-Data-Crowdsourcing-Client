@@ -8,7 +8,8 @@ import java.util.Base64
 import java.util.TimeZone
 
 object SessionWriter {
-    object V2 {
+    object V3 {
+        const val VERSION_SCHEME = 3
         /**
          * Creates the JSON line for the beacons static data (ID, tilt, orientation, description).
          * @param outputStreamWriter The output stream to write to.
@@ -20,7 +21,7 @@ object SessionWriter {
          *
          * Output example, formatted for readability:
          * {
-         *  "version_scheme": 2,
+         *  "version_scheme": $VERSION_SCHEME,
          *  "timezone": "Europe/Madrid",
          *  "start_instant": "2021-10-01T12:00:00Z",
          *  "finish_instant": "2021-10-01T12:30:00Z",
@@ -54,7 +55,7 @@ object SessionWriter {
             val formatter = DateTimeFormatter.ISO_INSTANT
 
             bufferedOutputStreamWriter.append("{")
-            bufferedOutputStreamWriter.append("\"version_scheme\": 2,")  // Version of the file format.
+            bufferedOutputStreamWriter.append("\"version_scheme\": $VERSION_SCHEME,")  // Version of the file format.
             bufferedOutputStreamWriter.append("\"timezone\": \"${timeZone.id}\",")
             bufferedOutputStreamWriter.append("\"start_localized_instant\": \"${startZonedDateTime.format(formatter)}\",")
             bufferedOutputStreamWriter.append("\"finish_localized_instant\": \"${finishZonedDateTime.format(formatter)}\",")
@@ -85,34 +86,34 @@ object SessionWriter {
         }
 
         /**
-         * Create the beacons CSV header of the file.
+         * Create the CSV header of the file.
          * @param outputStreamWriter The output stream to write to.
          *
          * Currently, it is:
          * beacon_id,timestamp,data,latitude,longitude
          */
-        fun appendCsvBeaconHeader(outputStreamWriter: OutputStreamWriter) {
-            outputStreamWriter.write("beacon_id,localized_timestamp,data\n")
+        fun appendCsvHeader(outputStreamWriter: OutputStreamWriter) {
+            outputStreamWriter.write("beacon_id,localized_timestamp,data,latitude,longitude,azimuth\n")
         }
 
         /**
-         * Create the beacons CSV body of the file.
+         * Create the CSV body of the file.
          * @param outputStreamWriter The output stream to write to.
          * @param beacons The collection of beacons.
          *
          * For example:
          * <header>
-         * 0x010203040506,2021-10-01T12:00:00.000,127
-         * 0x010203040506,2021-10-01T12:00:01.000,126
-         * 0x010203040506,2021-10-01T12:00:02.000,125
-         * 0x010203040507,2021-10-01T12:00:00.000,127
-         * 0x010203040507,2021-10-01T12:00:01.000,128
-         * 0x010203040507,2021-10-01T12:00:02.000,129
+         * 0x010203040506,2021-10-01T12:00:00.000,127,14,60,30
+         * 0x010203040506,2021-10-01T12:00:01.000,126,14,60,30
+         * 0x010203040506,2021-10-01T12:00:02.000,125,14,60,30
+         * 0x010203040507,2021-10-01T12:00:00.000,127,14,60,30
+         * 0x010203040507,2021-10-01T12:00:01.000,128,14,60,30
+         * 0x010203040507,2021-10-01T12:00:02.000,129,14,60,30
          */
-        fun appendCsvBodyFromBeacons(
+        fun appendCsvBodyFromData(
             outputStreamWriter: OutputStreamWriter,
             timeZone: TimeZone,
-            beacons: Collection<BeaconSimplified>
+            beacons: Collection<BeaconSimplified>,
         ) {
             val bufferedWriter = outputStreamWriter.buffered()
             val result = StringBuilder()
@@ -129,56 +130,15 @@ object SessionWriter {
                         .append(localizedTimestamp.format(formatter))
                         .append(",")
                         .append(entry.data)
+                        .append(",")
+                        .append(entry.latitude)
+                        .append(",")
+                        .append(entry.longitude)
+                        .append(",")
+                        .append(entry.azimuth)
                         .append("\n")
                     bufferedWriter.write(result.toString())
                 }
-            }
-            bufferedWriter.flush()
-        }
-
-        /**
-         * Create the CSV for the internal sensors data.
-         * @param outputStreamWriter The output stream to write to.
-         */
-        fun appendCsvInternalSensorsHeader(outputStreamWriter: OutputStreamWriter) {
-            outputStreamWriter.write("localized_timestamp,latitude,longitude,compass_angle\n")
-        }
-
-        /**
-         * Create the CSV for the internal sensors data.
-         * @param outputStreamWriter The output stream to write to.
-         * @param timeZone The time zone of the session.
-         * @param internalSensors The collection of internal sensors data.
-         *
-         * For example:
-         * <header>
-         * 12:00:00.000,40.0,-3.0,0.0
-         * 12:00:01.000,40.0,-3.0,1.0
-         * 12:00:02.000,40.0,-3.0,2.0
-         */
-        fun appendCsvBodyFromInternalSensors(
-            outputStreamWriter: OutputStreamWriter,
-            timeZone: TimeZone,
-            internalSensors: Collection<GpsAndCompassInfo>
-        ) {
-            val bufferedWriter = outputStreamWriter.buffered()
-            val result = StringBuilder()
-            val zoneId = timeZone.toZoneId()
-
-            val formatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-
-            for (entry in internalSensors) {
-                val localizedTimestamp = ZonedDateTime.ofInstant(entry.timestamp, zoneId)
-                result.setLength(0)  // Clear the StringBuilder
-                result.append(localizedTimestamp.format(formatter))
-                    .append(",")
-                    .append(entry.latitude)
-                    .append(",")
-                    .append(entry.longitude)
-                    .append(",")
-                    .append(entry.compassAngle)
-                    .append("\n")
-                bufferedWriter.write(result.toString())
             }
             bufferedWriter.flush()
         }

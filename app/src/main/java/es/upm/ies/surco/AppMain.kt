@@ -4,8 +4,6 @@ import android.app.*
 import android.content.ComponentCallbacks2
 import android.content.Intent
 import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
@@ -36,7 +34,7 @@ import java.time.Instant
 import kotlin.concurrent.thread
 
 
-class AppMain : Application(), ComponentCallbacks2, SensorEventListener {
+class AppMain : Application(), ComponentCallbacks2 {
     // API & user services
     private lateinit var apiService: APIService
     lateinit var apiUserSession: ApiUserSession
@@ -56,6 +54,9 @@ class AppMain : Application(), ComponentCallbacks2, SensorEventListener {
     // -- for public use by UI --
     val nRangedBeacons: MutableLiveData<Int> = MutableLiveData(0)
     val wasUploadedSuccessfully = MutableLiveData<Boolean>(false)
+
+    val minSensorAccuracy = MutableLiveData<Int>(SensorManager.SENSOR_STATUS_UNRELIABLE)
+    val sensorAccuracyValue: LiveData<Int> get() = minSensorAccuracy
 
     // Data for the beacon session
     val sessionRunning = MutableLiveData<Boolean>(false)
@@ -133,14 +134,14 @@ class AppMain : Application(), ComponentCallbacks2, SensorEventListener {
      * @param timestamp: Instant, timestamp of the data
      */
     fun addBeaconCollectionData(
-        beacons: Collection<Beacon>, timestamp: Instant
+        beacons: Collection<Beacon>, timestamp: Instant, latitude: Float, longitude: Float, azimuth: Float
     ) {
         for (beacon in beacons) {
             val id = beacon.id1
             val data = beacon.dataFields
             // analogReading is the CH1 analog value, as two bytes in little endian
             val analogReading = data[0].toShort()
-            addSensorDataEntry(timestamp, id, analogReading)
+            addSensorDataEntry(timestamp, id, analogReading, latitude, longitude, azimuth)
         }
 
         // Update the number of beacons detected
@@ -153,80 +154,10 @@ class AppMain : Application(), ComponentCallbacks2, SensorEventListener {
      * @param timestamp: Instant, timestamp of the data
      * @param id: Identifier, identifier of the beacon
      * @param data: Short, data to be added to the beacon
+     *
      */
-    fun addSensorDataEntry(timestamp: Instant, id: Identifier, data: Short) {
-        loggingSession.addBLESensorEntry(timestamp, id, data)
-    }
-
-    /**
-     * Add GPS and compass data to the loggingSession
-     * Gets called with a timestamp and the GPS location
-     * Calculates the compass bearing angle.
-     */
-    fun addLocationDataEntry(timestamp: Instant, latitude: Float, longitude: Float) {
-        if (hasCompassSensor) {
-            val compassAngle = getCompassAzimuth()
-            loggingSession.addGpsAndCompassInfo(timestamp, latitude.toDouble(), longitude.toDouble(), compassAngle)
-        } else {
-            loggingSession.addGpsAndCompassInfo(timestamp, latitude.toDouble(), longitude.toDouble(), Float.NaN)
-        }
-    }
-
-    /**
-     * Get compass azimuth angle in degrees.
-     */
-    private val sensorManager: SensorManager by lazy {
-        getSystemService(SENSOR_SERVICE) as SensorManager
-    }
-    private val accelerometer: Sensor? by lazy {
-        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    }
-    private val magnetometer: Sensor? by lazy {
-        sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-    }
-    private val magnetometerAccuracyStatus = MutableLiveData<Int>(SensorManager.SENSOR_STATUS_UNRELIABLE)
-    private val accelerometerAccuracyStatus = MutableLiveData<Int>(SensorManager.SENSOR_STATUS_UNRELIABLE)
-    private val minSensorAccuracy = MutableLiveData<Int>(SensorManager.SENSOR_STATUS_UNRELIABLE)
-    val sensorAccuracy: LiveData<Int> get() = minSensorAccuracy
-    private val rotationMatrix = FloatArray(9)
-    private val orientationAngles = FloatArray(3)
-    private val lastAccelerometerReading = FloatArray(3)
-    private val lastMagnetometerReading = FloatArray(3)
-    fun getCompassAzimuth(): Float {
-        // get last reading of accelerometer and magnetometer
-        SensorManager.getRotationMatrix(rotationMatrix, null, lastAccelerometerReading, lastMagnetometerReading)
-        SensorManager.getOrientation(rotationMatrix, orientationAngles)
-        val azimuthInRadians = orientationAngles[0]
-        return Math.toDegrees(azimuthInRadians.toDouble()).toFloat()
-    }
-
-    override fun onSensorChanged(event: SensorEvent?) {
-        if (event == null) return
-
-        when (event.sensor.type) {
-            Sensor.TYPE_ACCELEROMETER -> {
-                // Update the last accelerometer reading
-                System.arraycopy(event.values, 0, lastAccelerometerReading, 0, lastAccelerometerReading.size)
-            }
-            Sensor.TYPE_MAGNETIC_FIELD -> {
-                // Update the last magnetometer reading
-                System.arraycopy(event.values, 0, lastMagnetometerReading, 0, lastMagnetometerReading.size)
-            }
-        }
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        if (sensor?.type == Sensor.TYPE_MAGNETIC_FIELD) {
-            magnetometerAccuracyStatus.postValue(accuracy)
-        } else if (sensor?.type == Sensor.TYPE_ACCELEROMETER) {
-            accelerometerAccuracyStatus.postValue(accuracy)
-        }
-        minSensorAccuracy.postValue(
-            minOf(
-                magnetometerAccuracyStatus.value ?: SensorManager.SENSOR_STATUS_UNRELIABLE,
-                accelerometerAccuracyStatus.value ?: SensorManager.SENSOR_STATUS_UNRELIABLE
-            )
-        )
+    fun addSensorDataEntry(timestamp: Instant, id: Identifier, data: Short, latitude: Float, longitude: Float, azimuth: Float) {
+        loggingSession.addBLESensorEntry(timestamp, id, data, latitude, longitude, azimuth)
     }
 
     /**
@@ -291,9 +222,6 @@ class AppMain : Application(), ComponentCallbacks2, SensorEventListener {
             return
         } else {
             Log.i(TAG, "Starting beacon scan service")
-            // Register listeners for sensors
-            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
-            sensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_NORMAL)
             // Set the status of the session to running
             sessionRunning.postValue(true)
             // Start the beacon scanning service
@@ -320,9 +248,8 @@ class AppMain : Application(), ComponentCallbacks2, SensorEventListener {
         }
         // Set the status of the session to not running
         sessionRunning.postValue(false)
-        // Unregister listeners to save battery
-        sensorManager.unregisterListener(this)
-        handler.removeCallbacks(statusUpdateRunnable) // Stop periodic status updates
+        // Stop periodic status updates
+        handler.removeCallbacks(statusUpdateRunnable)
     }
 
     /**
@@ -372,7 +299,7 @@ class AppMain : Application(), ComponentCallbacks2, SensorEventListener {
 
     fun scheduleFileUpload() {
         Log.i(TAG, "Scheduling file upload")
-        // Define constraints for unmetered network
+        // Define constraints for non-metered networks
         val constraints =
             Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build()
 

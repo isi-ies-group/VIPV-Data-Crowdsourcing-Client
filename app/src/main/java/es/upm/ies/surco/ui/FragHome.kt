@@ -205,7 +205,7 @@ class FragHome : Fragment() {
      * Alerts the user if the compass precision is low and asks them to recalibrate it.
      */
     private fun promptAlertOnLowCompassPrecision() {
-        appMain.sensorAccuracy.value?.let {
+        appMain.sensorAccuracyValue.value?.let {
             if (it <= SensorManager.SENSOR_STATUS_ACCURACY_LOW) {
                 val builder = AlertDialog.Builder(requireContext())
                 builder.setTitle(getString(R.string.low_compass_precision_title))

@@ -6,7 +6,6 @@ import es.upm.ies.surco.notifyObservers
 import org.altbeacon.beacon.Identifier
 import java.io.File
 import java.time.Instant
-import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.TimeZone
 
@@ -46,20 +45,15 @@ object LoggingSession {
     private var stopZonedDateTime: ZonedDateTime? = null
 
     /**
-     * Android sensors data during the session.
-     */
-    private val gpsAndCompassData: MutableLiveData<ArrayList<GpsAndCompassInfo>> =
-        MutableLiveData<ArrayList<GpsAndCompassInfo>>(ArrayList<GpsAndCompassInfo>())
-    // val gpsAndCompass: LiveData<ArrayList<GpsAndCompassInfo>> = gpsAndCompassData  // unused (for now)
-    private var gpsAndCompassDataCacheFile: File? = null
-
-    /**
      * BLE beacons data during the session.
      */
-    private val beaconsData: MutableLiveData<ArrayList<BeaconSimplified>> =
-        MutableLiveData<ArrayList<BeaconSimplified>>(ArrayList<BeaconSimplified>())
-    val beacons: LiveData<ArrayList<BeaconSimplified>> = beaconsData
-    private var beaconsDataCacheFile: File? = null
+    // Use a Map for O(1) lookups by beacon ID
+    private val beaconMap = mutableMapOf<Identifier, BeaconSimplified>()
+    val beacons: LiveData<ArrayList<BeaconSimplified>> =
+        MutableLiveData<ArrayList<BeaconSimplified>>().apply {
+            value = ArrayList(beaconMap.values)
+        }
+    private var dataCacheFile: File? = null
 
     /**
      * Cache directory to store the session files.
@@ -79,35 +73,41 @@ object LoggingSession {
      * @param timestamp The timestamp of the data.
      * @param id The identifier of the beacon.
      * @param data The data to be added to the beacon.
+     * @param latitude The latitude of the device when the data was acquired.
+     * @param longitude The longitude of the device when the data was acquired.
+     * @param azimuth The azimuth of the device when the data was acquired.
      */
     fun addBLESensorEntry(
-        timestamp: Instant, id: Identifier, data: Short
+        timestamp: Instant,
+        id: Identifier,
+        data: Short,
+        latitude: Float,
+        longitude: Float,
+        azimuth: Float
     ) {
-        val beacon = beaconsData.value?.find { it.id == id }
+        // Look up the beacon in the Map
+        val beacon = beaconMap[id]
         if (beacon != null) {
-            beacon.sensorData.value?.add(SensorEntry(data, timestamp))
+            // Add the sensor entry to the existing beacon
+            beacon.sensorData.value?.add(SensorEntry(timestamp, data, latitude, longitude, azimuth))
             beacon.sensorData.notifyObservers()
-            beaconsData.notifyObservers()
         } else {
+            // Create a new beacon and add it to the list and the Map
             val newBeacon = BeaconSimplified(id)
-            newBeacon.sensorData.value?.add(SensorEntry(data, timestamp))
-            beaconsData.value!!.add(newBeacon)
-            beaconsData.notifyObservers()
+            newBeacon.sensorData.value?.add(
+                SensorEntry(
+                    timestamp,
+                    data,
+                    latitude,
+                    longitude,
+                    azimuth
+                )
+            )
+            beaconMap[id] = newBeacon
         }
-    }
-
-    /**
-     * Adds a GPS and compass data to the session.
-     * @param timestamp The timestamp of the data.
-     * @param latitude The latitude of the data.
-     * @param longitude The longitude of the data.
-     * @param compassAngle The compass angle of the data.
-     */
-    fun addGpsAndCompassInfo(
-        timestamp: Instant, latitude: Double, longitude: Double, compassAngle: Float
-    ) {
-        gpsAndCompassData.value?.add(GpsAndCompassInfo(timestamp, latitude, longitude, compassAngle))
-        gpsAndCompassData.notifyObservers()
+        (beacons as MutableLiveData).value = ArrayList(beaconMap.values)
+        // Notify observers of the updated beaconsData
+        beacons.notifyObservers()
     }
 
     /**
@@ -115,7 +115,7 @@ object LoggingSession {
      * @return The list of beacons.
      */
     fun getBeacons(): ArrayList<BeaconSimplified> {
-        return beaconsData.value!!
+        return ArrayList(beaconMap.values)
     }
 
     /**
@@ -124,17 +124,16 @@ object LoggingSession {
      * @return The beacon with the given identifier.
      */
     fun getBeacon(id: Identifier): BeaconSimplified? {
-        return beaconsData.value?.find { it.id == id }
+        return beaconMap[id]
     }
 
     /**
      * Removes all the data from the session.
      */
     fun clear() {
-        beaconsData.value?.clear()
-        gpsAndCompassData.value?.clear()
-        beaconsData.notifyObservers()
-        gpsAndCompassData.notifyObservers()
+        beaconMap.clear()
+        (beacons as MutableLiveData).value = ArrayList(beaconMap.values)
+        beacons.notifyObservers()
         startZonedDateTime = null
         stopZonedDateTime = null
     }
@@ -144,8 +143,9 @@ object LoggingSession {
      * @param id The identifier of the beacon.
      */
     fun removeBeacon(id: Identifier) {
-        beaconsData.value?.removeIf { it.id == id }
-        beaconsData.notifyObservers()
+        beaconMap.remove(id)
+        (beacons as MutableLiveData).value = ArrayList(beaconMap.values)
+        beacons.notifyObservers()
     }
 
     /**
@@ -154,21 +154,14 @@ object LoggingSession {
      * in memory.
      */
     fun freeDataTemporarily() {
-        // create the temporary files if they do not exist
-        if (gpsAndCompassDataCacheFile == null) {
-            gpsAndCompassDataCacheFile = File.createTempFile(TEMP_FILE_PREFIX, TEMP_FILE_EXTENSION, cacheDir)
-        }
-        if (beaconsDataCacheFile == null) {
-            beaconsDataCacheFile = File.createTempFile(TEMP_FILE_PREFIX, TEMP_FILE_EXTENSION, cacheDir)
+        // create the temporary file if needed
+        if (dataCacheFile == null) {
+            dataCacheFile = File.createTempFile(TEMP_FILE_PREFIX, TEMP_FILE_EXTENSION, cacheDir)
         }
 
         // append the latest data to the temporary files
-        gpsAndCompassDataCacheFile!!.outputStream().writer(Charsets.US_ASCII).use {
-            SessionWriter.V2.appendCsvBodyFromTempFile(it, gpsAndCompassDataCacheFile!!)
-            it.close()
-        }
-        beaconsDataCacheFile!!.outputStream().writer(Charsets.US_ASCII).use {
-            SessionWriter.V2.appendCsvBodyFromBeacons(it, zone, beacons.value!!)
+        dataCacheFile!!.outputStream().writer(Charsets.US_ASCII).use {
+            SessionWriter.V3.appendCsvBodyFromData(it, zone, beacons.value!!)
             it.close()
         }
         // clear the data from the beacons to free memory
@@ -187,8 +180,6 @@ object LoggingSession {
             || (beacons.value?.isEmpty() == true)  // no beacons
             || (beacons.value?.all { beacon -> beacon.sensorData.value?.isEmpty() != false } == true)  // all beacons are empty
             || (beacons.value?.any { beacon -> beacon.statusValue.value != BeaconSimplifiedStatus.INFO_MISSING } == false)  // not a single beacon has complete info
-            || (gpsAndCompassData.value == null)  // no GPS and compass data
-            || (gpsAndCompassData.value?.isEmpty() == true)  // no GPS and compass data
         ) {
             return null
         }
@@ -198,51 +189,35 @@ object LoggingSession {
             beacons.value!!.filter { it.statusValue.value != BeaconSimplifiedStatus.INFO_MISSING }
                 .map { it.copy() }
         beacons.value!!.map { it.clear() }
-        // deep copy the GPS and compass data to a temporary variable, and empty it
-        val temporaryGpsAndCompassData = gpsAndCompassData.value!!.map { it.copy() }
-        gpsAndCompassData.value!!.clear()
 
-        val startInstant = ZonedDateTime.ofInstant(startZonedDateTime!!.toInstant(), ZoneId.of("UTC"))
-        val stopInstant = ZonedDateTime.ofInstant(stopZonedDateTime!!.toInstant(), ZoneId.of("UTC"))
         var outFile = File(
             cacheDir,
-            "${SESSION_FILE_PREFIX}${startInstant}-${stopInstant}${SESSION_FILE_EXTENSION}"
+            "${SESSION_FILE_PREFIX}${startZonedDateTime}-${stopZonedDateTime}${SESSION_FILE_EXTENSION}"
         )
 
         outFile.outputStream().writer(Charsets.UTF_8).use {
             // write the header
-            SessionWriter.V2.createJSONHeader(
+            SessionWriter.V3.createJSONHeader(
                 it,
                 TimeZone.getDefault(),
                 temporaryBeacons,
-                startInstant!!,
-                stopInstant!!
+                startZonedDateTime!!,
+                stopZonedDateTime!!
             )
             it.write("\n\n")  // separate the header from the bodies
             // write the beacon CSV header
-            SessionWriter.V2.appendCsvBeaconHeader(it)
+            SessionWriter.V3.appendCsvHeader(it)
             // write the beacon body from the cached file
-            if (beaconsDataCacheFile != null) {
-                SessionWriter.V2.appendCsvBodyFromTempFile(it, beaconsDataCacheFile!!)
+            if (dataCacheFile != null) {
+                SessionWriter.V3.appendCsvBodyFromTempFile(it, dataCacheFile!!)
             }
             // write the beacons body from the beacons list
-            SessionWriter.V2.appendCsvBodyFromBeacons(it, zone, temporaryBeacons)
-            it.write("\n\n")  // separate the bodies
-            // write the GPS and compass CSV header
-            SessionWriter.V2.appendCsvInternalSensorsHeader(it)
-            // write the GPS and compass body from the cached file
-            if (gpsAndCompassDataCacheFile != null) {
-                SessionWriter.V2.appendCsvBodyFromTempFile(it, gpsAndCompassDataCacheFile!!)
-            }
-            // write the GPS and compass body from the GPS and compass data list
-            SessionWriter.V2.appendCsvBodyFromInternalSensors(it, zone, temporaryGpsAndCompassData)
-
+            SessionWriter.V3.appendCsvBodyFromData(it, zone, temporaryBeacons)
             it.close()
         }
 
-        // clear the temporary files
-        gpsAndCompassDataCacheFile?.delete()
-        beaconsDataCacheFile?.delete()
+        // clear the temporary file
+        dataCacheFile?.delete()
 
         // return the file to the caller
         return outFile

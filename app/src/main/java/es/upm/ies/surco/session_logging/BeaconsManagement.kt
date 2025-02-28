@@ -8,11 +8,14 @@ import java.time.Instant
 /**
  * In-beacon data entry with the data that changes through a measurement session.
  * Holds the read data (16-bit 2's complement) from the analog channel of the
- * beacon, location and timestamp.
+ * beacon, location, compass azimuth and timestamp.
  */
 data class SensorEntry(
-    val data: Short,
     val timestamp: Instant,
+    val data: Short,
+    val latitude: Float,
+    val longitude: Float,
+    val azimuth: Float,
 )
 
 /**
