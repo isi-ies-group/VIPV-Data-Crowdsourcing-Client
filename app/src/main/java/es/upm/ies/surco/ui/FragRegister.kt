@@ -13,7 +13,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
-import es.upm.ies.surco.ApiUserSessionState
+import es.upm.ies.surco.api.ApiUserSessionState
 import es.upm.ies.surco.R
 import es.upm.ies.surco.databinding.FragmentRegisterBinding
 

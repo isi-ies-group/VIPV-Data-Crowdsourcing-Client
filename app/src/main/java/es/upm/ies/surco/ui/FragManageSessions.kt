@@ -13,14 +13,13 @@ import androidx.recyclerview.widget.RecyclerView
 import es.upm.ies.surco.BuildConfig
 import es.upm.ies.surco.databinding.FragmentManageSessionsBinding
 import es.upm.ies.surco.databinding.RowItemSessionFileBinding
-import es.upm.ies.surco.AppMain
 import es.upm.ies.surco.R
+import es.upm.ies.surco.session_logging.LoggingSession
 import java.io.File
 
 class FragManageSessions : Fragment() {
 
     private lateinit var binding: FragmentManageSessionsBinding
-    private val app = AppMain.Companion.instance
     private lateinit var sessionFilesAdapter: SessionFilesAdapter
 
     override fun onCreateView(
@@ -33,7 +32,7 @@ class FragManageSessions : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        sessionFilesAdapter = SessionFilesAdapter(app.loggingSession.getSessionFiles().asList())
+        sessionFilesAdapter = SessionFilesAdapter(LoggingSession.getSessionFiles().asList())
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = sessionFilesAdapter

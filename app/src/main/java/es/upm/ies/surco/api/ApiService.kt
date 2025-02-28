@@ -1,4 +1,4 @@
-package es.upm.ies.surco
+package es.upm.ies.surco.api
 
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody

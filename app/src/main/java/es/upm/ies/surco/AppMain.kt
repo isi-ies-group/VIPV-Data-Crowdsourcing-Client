@@ -19,7 +19,10 @@ import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import es.upm.ies.surco.api.APIService
+import es.upm.ies.surco.api.ApiUserSession
 import es.upm.ies.surco.service.ForegroundBeaconScanService
+import es.upm.ies.surco.session_logging.LoggingSession
 import es.upm.ies.surco.ui.ActMain
 import es.upm.ies.surco.workers.SessionFilesUploadWorker
 import org.altbeacon.beacon.Beacon

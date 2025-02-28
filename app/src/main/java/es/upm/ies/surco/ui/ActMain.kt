@@ -12,7 +12,6 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
@@ -23,9 +22,8 @@ import es.upm.ies.surco.BuildConfig
 import es.upm.ies.surco.R
 import es.upm.ies.surco.databinding.ActivityMainBinding
 import com.google.android.material.navigation.NavigationView
-import es.upm.ies.surco.ApiUserSessionState
+import es.upm.ies.surco.api.ApiUserSessionState
 import es.upm.ies.surco.AppMain
-import kotlin.concurrent.thread
 
 class ActMain : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
     private lateinit var binding: ActivityMainBinding
@@ -197,29 +195,6 @@ class ActMain : AppCompatActivity(), NavigationView.OnNavigationItemSelectedList
         } catch (e: Exception) {
             Log.e(TAG, "Error opening link: $url; ${e.message}")
             Toast.makeText(this, "Could not open: $url", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    fun shareSession() {
-        thread {
-            val file = app.loggingSession.saveSession()
-            if (file == null) {
-                runOnUiThread {
-                    Toast.makeText(
-                        this, getString(R.string.no_data_to_share), Toast.LENGTH_SHORT
-                    ).show()
-                }
-                return@thread
-            }
-            val uri =
-                FileProvider.getUriForFile(this, BuildConfig.APPLICATION_ID + ".fileProvider", file)
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                putExtra(Intent.EXTRA_STREAM, uri)
-                type = "application/csv"
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(Intent.createChooser(intent, "Share session data"))
         }
     }
 

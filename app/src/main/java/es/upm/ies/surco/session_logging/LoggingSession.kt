@@ -1,12 +1,8 @@
-package es.upm.ies.surco
+package es.upm.ies.surco.session_logging
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import es.upm.ies.surco.session_logging.BeaconSimplified
-import es.upm.ies.surco.session_logging.BeaconSimplifiedStatus
-import es.upm.ies.surco.session_logging.GpsAndCompassInfo
-import es.upm.ies.surco.session_logging.SensorEntry
-import es.upm.ies.surco.session_logging.SessionWriter
+import es.upm.ies.surco.notifyObservers
 import org.altbeacon.beacon.Identifier
 import java.io.File
 import java.time.Instant

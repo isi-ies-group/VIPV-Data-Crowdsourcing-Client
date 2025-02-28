@@ -3,8 +3,8 @@ package es.upm.ies.surco.ui
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import es.upm.ies.surco.ApiUserSession
-import es.upm.ies.surco.ApiUserSessionState
+import es.upm.ies.surco.api.ApiUserSession
+import es.upm.ies.surco.api.ApiUserSessionState
 import es.upm.ies.surco.AppMain
 import kotlinx.coroutines.launch
 

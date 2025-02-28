@@ -4,9 +4,9 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import es.upm.ies.surco.ApiUserSessionState
+import es.upm.ies.surco.api.ApiUserSessionState
 import es.upm.ies.surco.AppMain
-import es.upm.ies.surco.LoggingSession
+import es.upm.ies.surco.session_logging.LoggingSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File

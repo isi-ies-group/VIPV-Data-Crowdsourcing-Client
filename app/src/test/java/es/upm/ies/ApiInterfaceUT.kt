@@ -1,8 +1,8 @@
 package es.upm.ies
 
 import android.content.SharedPreferences
-import es.upm.ies.surco.APIService
-import es.upm.ies.surco.ApiUserSession
+import es.upm.ies.surco.api.APIService
+import es.upm.ies.surco.api.ApiUserSession
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.BeforeClass

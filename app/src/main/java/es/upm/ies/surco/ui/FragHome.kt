@@ -7,7 +7,6 @@ import android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE
 import android.bluetooth.BluetoothManager
 import android.content.Context.BLUETOOTH_SERVICE
 import android.content.Intent
-import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle

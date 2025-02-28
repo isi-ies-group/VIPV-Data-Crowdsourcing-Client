@@ -2,7 +2,7 @@ package es.upm.ies
 
 import es.upm.ies.surco.session_logging.SessionWriter
 import es.upm.ies.surco.session_logging.BeaconSimplified
-import es.upm.ies.surco.LoggingSession
+import es.upm.ies.surco.session_logging.LoggingSession
 import es.upm.ies.surco.session_logging.SensorEntry
 import org.altbeacon.beacon.Identifier
 import org.junit.Test

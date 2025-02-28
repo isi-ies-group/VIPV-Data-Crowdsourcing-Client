@@ -1,4 +1,4 @@
-package es.upm.ies.surco
+package es.upm.ies.surco.api
 
 import android.content.SharedPreferences
 import android.util.Base64
