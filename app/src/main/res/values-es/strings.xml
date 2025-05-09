@@ -120,7 +120,7 @@
         <item>Manualmente</item>
     </array>
     <string name="want_to_use_offline_question">¿Quieres tomar medidas solo para ti?</string>
-    <string name="use_offline">Usar sin cuenta</string>
+    <string name="continue_offline">Continuar sin cuenta</string>
     <string name="beacon_info_incomplete">Añada los campos de información requeridos.</string>
     <string name="beacon_detail_ok">Baliza configurada y comunicándose</string>
     <string name="beacon_detail_info_error">Faltan datos sobre la posición de la baliza</string>
@@ -142,4 +142,9 @@
     <string name="data_recollection_get_in_contact">Para ponerte en contacto con nosotros, para hacer comentarios o para solicitar la eliminación o modificación de tus datos, utiliza alguno de los medios citados al final.\nEsta aplicación comparte la ubicación GPS, la orientación del móvil, medidas de las balizas Bluetooth, el modelo y fabricante del móvil y la versión de Android, en algún momento del tiempo después de que finalice una sesión de medidas.\nLos datos recogidos se tratarán con un fines puramente científicos y que no se compartirá con terceros bajo ningún concepto, a excepción si es solicitado por el mismo usuario o las autoridades competentes.</string>
     <string name="settings_bluetooth_scan_interval_summary">Milisegundos</string>
     <string name="settings_manage_sessions">Gestión sesiones guardadas</string>
+    <string name="delete_all_sessions">Eliminar todas las sesiones</string>
+    <string name="upload_all_sessions">Publicar todas las sesiones</string>
+    <string name="confirm_undonable_action">¿Estás segur@? Esta acción no se puede deshacer.</string>
+    <string name="all_sessions_deleted">Se eliminaron todas las sesiones guardadas</string>
+    <string name="deletion_failed">No se pudieron eliminar todas las sesiones</string>
 </resources>

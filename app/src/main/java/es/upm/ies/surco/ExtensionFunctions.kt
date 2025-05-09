@@ -5,6 +5,8 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.MutableLiveData
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * Notifies the observers of a MutableLiveData.
@@ -36,4 +38,14 @@ fun Fragment.hideKeyboard() {
 fun Context.hideKeyboard(view: View) {
     val inputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
     inputMethodManager.hideSoftInputFromWindow(view.windowToken, 0)
+}
+
+val PATH_SAFE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss'Z'")
+/**
+ * Converts a ZonedDateTime to a path-safe string in UTC.
+ * The format is "yyyy-MM-dd_HH-mm-ssZ".
+ * @return The path-safe string.
+ */
+fun ZonedDateTime.formatAsPathSafeString(): String {
+    return PATH_SAFE_FORMATTER.format(this)
 }

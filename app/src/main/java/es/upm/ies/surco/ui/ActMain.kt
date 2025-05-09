@@ -11,26 +11,27 @@ import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.net.toUri
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.setupWithNavController
+import com.google.android.material.navigation.NavigationView
+import es.upm.ies.surco.AppMain
 import es.upm.ies.surco.BuildConfig
 import es.upm.ies.surco.R
-import es.upm.ies.surco.databinding.ActivityMainBinding
-import com.google.android.material.navigation.NavigationView
 import es.upm.ies.surco.api.ApiUserSessionState
-import es.upm.ies.surco.AppMain
-import androidx.core.net.toUri
+import es.upm.ies.surco.databinding.ActivityMainBinding
+import es.upm.ies.surco.session_logging.LoggingSessionStatus
 
 class ActMain : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var actionBarDrawerToggle: ActionBarDrawerToggle
     private lateinit var navController: NavController
 
-    private val app = AppMain.Companion.instance
+    private val app by lazy { application as AppMain }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,11 +60,11 @@ class ActMain : AppCompatActivity(), NavigationView.OnNavigationItemSelectedList
 
         checkNeedFirstLogin()
 
-        app.apiUserSession.lastKnownState.observeForever { state ->
+        app.apiUserSession.lastKnownState.observe(this) { state ->
             updateDrawerOptionsMenu()
         }
 
-        app.wasUploadedSuccessfully.observeForever { wasUploadedSuccessfully ->
+        app.wasUploadedSuccessfully.observe(this) { wasUploadedSuccessfully ->
             if (wasUploadedSuccessfully) {  // If the data was uploaded successfully, show a message
                 Toast.makeText(this, getString(R.string.upload_successful), Toast.LENGTH_SHORT)
                     .show()
@@ -73,13 +74,41 @@ class ActMain : AppCompatActivity(), NavigationView.OnNavigationItemSelectedList
         // Observe the session state to keep the screen on during a session on Android 14 and higher
         // until we fix this issue in the future
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            app.isSessionActive.observeForever { isActive ->
-                if (isActive) {
-                    // Set screen to never turn off
-                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                } else {
-                    // Unset screen to never turn off
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            app.loggingSession.status.observe(this) { status ->
+                when (status) {
+                    LoggingSessionStatus.SESSION_ONGOING -> {
+                        // Set screen to never turn off
+                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+
+                    LoggingSessionStatus.SESSION_TRIGGERABLE -> {
+                        // Unset screen to never turn off
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+
+                    else -> {
+                        // Do nothing
+                    }
+                }
+            }
+        }
+
+        app.loggingSession.status.observe(this) {
+            when (it) {
+                LoggingSessionStatus.SESSION_ONGOING -> {
+                    Toast.makeText(
+                        this, getString(R.string.session_started), Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                LoggingSessionStatus.SESSION_STOPPING -> {
+                    Toast.makeText(
+                        this, getString(R.string.session_stopped), Toast.LENGTH_SHORT
+                    ).show()
+                }
+
+                else -> {
+                    // Do nothing
                 }
             }
         }

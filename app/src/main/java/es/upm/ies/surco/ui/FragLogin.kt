@@ -12,6 +12,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import es.upm.ies.surco.R
 import es.upm.ies.surco.databinding.FragmentLoginBinding
@@ -21,11 +22,13 @@ class FragLogin : Fragment() {
     private var _binding: FragmentLoginBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: FragLoginViewModel by viewModels()
+    private val viewModel: FragLoginViewModel by viewModels(
+        factoryProducer = {
+            ViewModelProvider.AndroidViewModelFactory.getInstance(requireActivity().application)
+        })
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         // Inflate the layout for this fragment using view binding
         _binding = FragmentLoginBinding.inflate(inflater, container, false)
@@ -91,34 +94,26 @@ class FragLogin : Fragment() {
             }
 
             override fun beforeTextChanged(
-                s: CharSequence?,
-                start: Int,
-                count: Int,
-                after: Int
+                s: CharSequence?, start: Int, count: Int, after: Int
             ) {
             }
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
             }
-        }
-        )
+        })
         binding.etPassword.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 viewModel.password.value = s.toString()
             }
 
             override fun beforeTextChanged(
-                s: CharSequence?,
-                start: Int,
-                count: Int,
-                after: Int
+                s: CharSequence?, start: Int, count: Int, after: Int
             ) {
             }
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
             }
-        }
-        )
+        })
 
         binding.btnLogin.setOnClickListener {
             // close the keyboard

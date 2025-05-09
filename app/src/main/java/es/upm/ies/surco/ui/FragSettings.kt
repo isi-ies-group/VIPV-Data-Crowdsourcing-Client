@@ -22,6 +22,8 @@ class FragSettings : PreferenceFragmentCompat() {
     // lock for the test api endpoint button, so multiple requests are not sent before the first one finishes
     private var testingApiEndpoint = false
 
+    private val appMain by lazy { requireActivity().application as AppMain }
+
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.preferences, rootKey)
 
@@ -68,7 +70,10 @@ class FragSettings : PreferenceFragmentCompat() {
         // update hint on preference change, updated value is handled by main application
         sessionUploadPreference?.onPreferenceChangeListener =
             Preference.OnPreferenceChangeListener { _, newValue ->
-                sessionUploadPreference.summary = sessionUploadPreference.entries[sessionUploadPreference.findIndexOfValue(newValue as String)]
+                sessionUploadPreference.summary =
+                    sessionUploadPreference.entries[sessionUploadPreference.findIndexOfValue(
+                        newValue as String
+                    )]
                 true
             }
 
@@ -82,16 +87,16 @@ class FragSettings : PreferenceFragmentCompat() {
         // set callback to update the application theme when the value changes
         colorThemePreference?.onPreferenceChangeListener =
             Preference.OnPreferenceChangeListener { _, newValue ->
-                AppMain.Companion.instance.setupTheme(newValue as String)
+                appMain.setupTheme(newValue as String)
                 true
             }
 
         val scanIntervalPreference = findPreference<EditTextPreference>("scan_interval")
         // set summary to the current value
-        scanIntervalPreference?.summary = AppMain.Companion.instance.scanInterval.toString() + " ms"
+        scanIntervalPreference?.summary = appMain.scanInterval.toString() + " ms"
         scanIntervalPreference?.setOnBindEditTextListener {
             // set hint to the current value
-            it.hint = AppMain.Companion.instance.scanInterval.toString() + " ms"
+            it.hint = appMain.scanInterval.toString() + " ms"
             // configure to only accept numerical values
             it.inputType = android.text.InputType.TYPE_CLASS_NUMBER
         }
@@ -99,9 +104,9 @@ class FragSettings : PreferenceFragmentCompat() {
         scanIntervalPreference?.onPreferenceChangeListener =
             Preference.OnPreferenceChangeListener { _, newValue ->
                 try {
-                    AppMain.Companion.instance.scanInterval = (newValue as String).toLong()
+                    appMain.scanInterval = (newValue as String).toLong()
                     // update summary to the current value
-                    scanIntervalPreference.summary = AppMain.Companion.instance.scanInterval.toString() + " ms"
+                    scanIntervalPreference.summary = appMain.scanInterval.toString() + " ms"
                 } catch (_: NumberFormatException) {
                     Toast.makeText(
                         requireContext(),
@@ -125,7 +130,7 @@ class FragSettings : PreferenceFragmentCompat() {
         // set callback to update the application API service when the value changes
         editTextPreference?.onPreferenceChangeListener =
             Preference.OnPreferenceChangeListener { _, newValue ->
-                AppMain.Companion.instance.setupApiService(newValue as String)
+                appMain.setupApiService(newValue as String)
                 true
             }
 
@@ -145,7 +150,7 @@ class FragSettings : PreferenceFragmentCompat() {
                 requireContext(), getString(R.string.settings_api_testing), Toast.LENGTH_SHORT
             ).show()
             lifecycleScope.launch {
-                val isUp = AppMain.Companion.instance.testApiEndpoint()
+                val isUp = appMain.testApiEndpoint()
                 // set the flag to false
                 testingApiEndpoint = false
                 // show a toast with the result

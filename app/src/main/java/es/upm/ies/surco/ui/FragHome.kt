@@ -20,6 +20,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import es.upm.ies.surco.R
 import es.upm.ies.surco.databinding.FragmentHomeBinding
@@ -27,12 +28,16 @@ import es.upm.ies.surco.AppMain
 import es.upm.ies.surco.api.ApiUserSessionState
 import es.upm.ies.surco.hideKeyboard
 import es.upm.ies.surco.session_logging.BeaconSimplified
+import es.upm.ies.surco.session_logging.LoggingSessionStatus
 
 class FragHome : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
 
-    lateinit var viewModel: Lazy<FragHomeViewModel>
+    private val viewModel: FragHomeViewModel by viewModels(
+        factoryProducer = {
+            ViewModelProvider.AndroidViewModelFactory.getInstance(requireActivity().application)
+        })
 
     // Adapter for the list view
     lateinit var adapter: ListAdapterBeacons
@@ -59,20 +64,21 @@ class FragHome : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
-        viewModel = viewModels<FragHomeViewModel>()
 
         // Get the application instance
-        appMain = AppMain.Companion.instance
+        appMain = requireActivity().application as AppMain
 
         // Create the adapter for the list view and assign it to the list view.
         adapter = ListAdapterBeacons(requireContext(), ArrayList(), viewLifecycleOwner)
         binding.beaconListView.adapter = adapter
 
         // Set the start stop button text and icon according to the session state
-        updateStartStopButton(appMain.isSessionActive.value!!)
+        updateStartStopButton(
+            viewModel.loggingSessionStatus.value ?: LoggingSessionStatus.SESSION_STOPPING
+        )
 
         // Assign observers and callbacks to the ViewModel's LiveData objects.
-        viewModel.value.rangedBeacons.observe(viewLifecycleOwner) { beacons ->
+        viewModel.rangedBeacons.observe(viewLifecycleOwner) { beacons ->
             adapter.updateData(beacons)
         }
 
@@ -82,20 +88,24 @@ class FragHome : Fragment() {
                 val beaconId = beacon.id
                 Log.d("FragHome", "Beacon clicked: $beaconId")
                 // navigate to the details fragment, passing the beacon ID
-                findNavController().navigate(R.id.action_homeFragment_to_fragBeaconDetails,
-                    Bundle().apply {
+                findNavController().navigate(
+                    R.id.action_homeFragment_to_fragBeaconDetails, Bundle().apply {
                         putString("beaconId", beaconId.toString())
                     })
             }
 
-        viewModel.value.nRangedBeacons.observe(viewLifecycleOwner) { n ->
-            updateBeaconCountTextView(n, appMain.isSessionActive.value!!)
-            adapter.updateData(viewModel.value.rangedBeacons.value!!)
+        viewModel.nBeaconsOnline.observe(viewLifecycleOwner) { n ->
+            updateBeaconCountTextView(
+                n, viewModel.loggingSessionStatus.value == LoggingSessionStatus.SESSION_ONGOING
+            )
+            adapter.updateData(viewModel.rangedBeacons.value!!)
         }
 
-        viewModel.value.isSessionActive.observe(viewLifecycleOwner) { isSessionActive ->
-            updateStartStopButton(isSessionActive)
-            updateBeaconCountTextView(viewModel.value.nRangedBeacons.value!!, isSessionActive)
+        viewModel.loggingSessionStatus.observe(viewLifecycleOwner) { status ->
+            updateStartStopButton(status)
+            updateBeaconCountTextView(
+                viewModel.nBeaconsOnline.value!!, status == LoggingSessionStatus.SESSION_ONGOING
+            )
         }
 
         return binding.root
@@ -106,23 +116,23 @@ class FragHome : Fragment() {
         hideKeyboard() // Close the virtual keyboard
         // Set click listeners for the buttons
         binding.startStopSessionButton.setOnClickListener {
-            if (viewModel.value.isSessionActive.value == false) {
+            if (viewModel.loggingSessionStatus.value == LoggingSessionStatus.SESSION_TRIGGERABLE) {
                 // Check if Bluetooth is enabled and prompt the user to enable it if not
                 promptEnableBluetooth()
                 // Check compass precision
                 promptAlertOnLowCompassPrecision()
             }
-            viewModel.value.toggleSession()
+            viewModel.toggleSession()
         }
 
         binding.imBtnActionUploadSession.setOnClickListener {
             // Check if there is data to upload
-            if (AppMain.Companion.instance.loggingSession.getSessionFiles().isEmpty()) {
+            if (appMain.loggingSession.getSessionFiles().isEmpty()) {
                 // If there are no files, show a toast message and return
                 Toast.makeText(
                     requireContext(), getString(R.string.no_data_to_upload), Toast.LENGTH_SHORT
                 ).show()
-            } else if (AppMain.Companion.instance.apiUserSession.lastKnownState.value == ApiUserSessionState.NOT_LOGGED_IN || AppMain.Companion.instance.apiUserSession.lastKnownState.value == ApiUserSessionState.NEVER_LOGGED_IN) {
+            } else if (appMain.apiUserSession.lastKnownState.value == ApiUserSessionState.NOT_LOGGED_IN || appMain.apiUserSession.lastKnownState.value == ApiUserSessionState.NEVER_LOGGED_IN) {
                 // If the user is not logged in, show a toast message and return
                 Toast.makeText(
                     requireContext(), getString(R.string.session_not_active), Toast.LENGTH_SHORT
@@ -133,7 +143,7 @@ class FragHome : Fragment() {
                     requireContext(), getString(R.string.uploading_session_data), Toast.LENGTH_SHORT
                 ).show()
                 // Upload the session data
-                viewModel.value.uploadAllSessions()
+                viewModel.uploadAllSessions()
             }
         }
 
@@ -153,34 +163,50 @@ class FragHome : Fragment() {
     /**
      * Updates the start/stop session button icon according to the session state, as well as the
      * content description.
-     * @param isSessionActive True if the session is active, false otherwise.
+     * @param status The current session status.
      */
-    private fun updateStartStopButton(isSessionActive: Boolean) {
-        if (isSessionActive) {
-            binding.startStopSessionButton.setImageResource(R.drawable.square_stop)
-            binding.startStopSessionButton.tooltipText = getString(R.string.stop_button)
-            binding.startStopSessionButton.contentDescription = getString(R.string.stop_button)
-        } else {
-            binding.startStopSessionButton.setImageResource(R.drawable.triangle_start)
-            binding.startStopSessionButton.tooltipText = getString(R.string.start_button)
-            binding.startStopSessionButton.contentDescription = getString(R.string.start_button)
+    private fun updateStartStopButton(status: LoggingSessionStatus) {
+        when (status) {
+            LoggingSessionStatus.SESSION_ONGOING -> {
+                binding.startStopSessionButton.setImageResource(R.drawable.square_stop)
+                binding.startStopSessionButton.tooltipText = getString(R.string.stop_button)
+                binding.startStopSessionButton.contentDescription = getString(R.string.stop_button)
+
+                binding.startStopSessionButton.isEnabled = true
+                binding.startStopSessionButton.isClickable = true
+            }
+
+            LoggingSessionStatus.SESSION_TRIGGERABLE -> {
+                binding.startStopSessionButton.setImageResource(R.drawable.triangle_start)
+                binding.startStopSessionButton.tooltipText = getString(R.string.start_button)
+                binding.startStopSessionButton.contentDescription = getString(R.string.start_button)
+
+                binding.startStopSessionButton.isEnabled = true
+                binding.startStopSessionButton.isClickable = true
+            }
+
+            LoggingSessionStatus.SESSION_STOPPING -> {
+                // Just disable the button
+                binding.startStopSessionButton.isEnabled = false
+                binding.startStopSessionButton.isClickable = false
+            }
         }
     }
 
     /**
      * Updates the text view with the number of beacons detected, and whether the session is paused
      * or not.
-     * @param nRangedBeacons The number of beacons detected.
+     * @param nBeacons The number of beacons detected.
      * @param isSessionActive True if the session is active, false otherwise.
      */
-    private fun updateBeaconCountTextView(nRangedBeacons: Int, isSessionActive: Boolean) {
+    private fun updateBeaconCountTextView(nBeacons: Int, isSessionActive: Boolean) {
         if (isSessionActive) {
             // Update the top message textview to show the number of beacons detected
-            if (nRangedBeacons == 0) {
+            if (nBeacons == 0) {
                 binding.beaconCountTextView.text = getString(R.string.beacons_detected_zero)
             } else {
                 binding.beaconCountTextView.text =
-                    getString(R.string.beacons_detected_nonzero, nRangedBeacons)
+                    getString(R.string.beacons_detected_nonzero, nBeacons)
             }
         } else {
             binding.beaconCountTextView.text = getString(R.string.beacons_detected_paused)

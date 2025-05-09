@@ -1,19 +1,18 @@
 package es.upm.ies.surco.ui
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import es.upm.ies.surco.AppMain
 import es.upm.ies.surco.session_logging.BeaconSimplified
 import es.upm.ies.surco.session_logging.BeaconSimplifiedStatus
 import es.upm.ies.surco.session_logging.SensorEntry
 import org.altbeacon.beacon.Identifier
-import java.util.ArrayList
 
-class FragBeaconDetailsViewModel : ViewModel() {
+class FragBeaconDetailsViewModel(application: Application) : AndroidViewModel(application) {
+    private val appMain by lazy { getApplication<AppMain>() }
     private var beaconId: Identifier? = null
-
-    private val appMain = AppMain.Companion.instance
 
     private var _beacon = MutableLiveData<BeaconSimplified?>()
     val beacon: LiveData<BeaconSimplified?> get() = _beacon

@@ -81,22 +81,24 @@ class BeaconSimplified(val id: Identifier) {
     /**
      * Refreshes the status of the beacon.
      *
-     * If the last data entry is older than the maximum offset, the status is set to NOT_IN_RANGE.
-     * If the info fields are empty, the status is set to INVALID_INFO.
+     * If the last data entry is older than the maximum offset, the status is set to OFFLINE.
+     * If the info fields (position, direction, or tilt) are empty, the status is set to INFO_MISSING.
      * Else, the status is set to OK.
+     * @return The new status of the beacon.
      */
-    fun refreshStatus() {
+    fun refreshStatus(): BeaconSimplifiedStatus {
         val lastEntry = sensorData.value?.lastOrNull()
         val now = Instant.now()
-        if (lastEntry != null && now.epochSecond - lastEntry.timestamp.epochSecond > MAX_SECONDS_OFFSET_UNTIL_OUT_OF_RANGE) {
-            status.postValue(BeaconSimplifiedStatus.OFFLINE)
-            return
-        } else if (position.isEmpty() || direction == null || tilt == null) {
-            status.postValue(BeaconSimplifiedStatus.INFO_MISSING)
-            return
-        } else {
-            status.postValue(BeaconSimplifiedStatus.OK)
+
+        val newStatus = when {
+            // Ordered by what is most important to report
+            lastEntry == null || (now.epochSecond - lastEntry.timestamp.epochSecond > MAX_SECONDS_OFFSET_UNTIL_OUT_OF_RANGE) -> BeaconSimplifiedStatus.OFFLINE
+            position.isEmpty() || direction == null || tilt == null -> BeaconSimplifiedStatus.INFO_MISSING
+            else -> BeaconSimplifiedStatus.OK
         }
+
+        status.postValue(newStatus)
+        return newStatus
     }
 
     /**
@@ -131,7 +133,20 @@ class BeaconSimplified(val id: Identifier) {
         return "BeaconSimplified(id=$id, position='$position', direction=$direction, tilt=$tilt, status=${status.value}, description='$description')"
     }
 
+    /**
+     * Adds a SensorEntry to the beacon, updates the status and notifies observers.
+     */
+    fun addSensorEntry(
+        timestamp: Instant, data: Short, latitude: Float, longitude: Float, azimuth: Float
+    ) {
+        // Add the sensor entry to the existing beacon
+        sensorData.value?.add(SensorEntry(timestamp, data, latitude, longitude, azimuth))
+        sensorData.postValue(sensorData.value)
+        // Update the status
+        refreshStatus()
+    }
+
     companion object {
-        const val MAX_SECONDS_OFFSET_UNTIL_OUT_OF_RANGE = 5
+        const val MAX_SECONDS_OFFSET_UNTIL_OUT_OF_RANGE = 2.5
     }
 }

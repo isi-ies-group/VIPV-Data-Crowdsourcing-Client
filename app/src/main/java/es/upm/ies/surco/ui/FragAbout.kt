@@ -17,8 +17,7 @@ class AboutFragment : Fragment() {
     private val binding get() = _binding!!
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         // Inflate the layout for this fragment using view binding
         _binding = FragmentAboutBinding.inflate(inflater, container, false)
@@ -56,11 +55,13 @@ class AboutFragment : Fragment() {
         val url = BuildConfig.SERVER_URL
         (requireActivity() as ActMain).openURL(url)
     }
+
     fun openGitHubPage() {
         // Open the GitHub page in a browser
         val url = BuildConfig.GITHUB_URL
         (requireActivity() as ActMain).openURL(url)
     }
+
     fun openEmail() {
         // Open an email client with the email address
         val email = BuildConfig.CONTACT_EMAIL

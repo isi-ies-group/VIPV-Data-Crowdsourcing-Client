@@ -59,7 +59,9 @@ class ForegroundBeaconScanService : BeaconService(), SensorEventListener {
                 data?.getParcelableArrayList<Beacon>("beacons") ?: return false
             }
             // add the beacons to the AppMain singleton
-            appMain.addBeaconCollectionData(beacons, timestamp, latitude, longitude, getCompassAzimuth())
+            appMain.addBeaconCollectionData(
+                beacons, timestamp, latitude, longitude, getCompassAzimuth()
+            )
             return true
         }
     }
@@ -106,7 +108,7 @@ class ForegroundBeaconScanService : BeaconService(), SensorEventListener {
         Log.i(TAG, "Service created")
 
         // get AppMain singleton
-        appMain = AppMain.instance
+        appMain = applicationContext as AppMain
 
         // Get the Bluetooth and Location managers
         bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
@@ -241,7 +243,7 @@ class ForegroundBeaconScanService : BeaconService(), SensorEventListener {
         Log.i(
             "ForegroundBeaconScanService",
             "Scan intervals: ${beaconManager.foregroundScanPeriod} (${beaconManager.foregroundBetweenScanPeriod}) / ${beaconManager.backgroundScanPeriod} (${beaconManager.backgroundBetweenScanPeriod}) [ms]",
-            )
+        )
 
         // Start the service in the foreground
         beaconManager.enableForegroundServiceScanning(
@@ -340,6 +342,9 @@ class ForegroundBeaconScanService : BeaconService(), SensorEventListener {
     private val magnetometer: Sensor? by lazy {
         sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
     }
+    private val hasCompass: Boolean by lazy {
+        accelerometer != null && magnetometer != null
+    }
     private var magnetometerAccuracyStatus: Int = SensorManager.SENSOR_STATUS_UNRELIABLE
     private var accelerometerAccuracyStatus: Int = SensorManager.SENSOR_STATUS_UNRELIABLE
     private val rotationMatrix = FloatArray(9)
@@ -347,7 +352,7 @@ class ForegroundBeaconScanService : BeaconService(), SensorEventListener {
     private val lastAccelerometerReading = FloatArray(3)
     private val lastMagnetometerReading = FloatArray(3)
     fun getCompassAzimuth(): Float {
-        if (!appMain.hasCompassSensor) return Float.NaN
+        if (!hasCompass) return Float.NaN
 
         // get last reading of accelerometer and magnetometer
         SensorManager.getRotationMatrix(

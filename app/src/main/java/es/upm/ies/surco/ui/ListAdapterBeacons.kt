@@ -73,9 +73,7 @@ class ListAdapterBeacons(
                 )
 
                 else -> Triple(
-                    R.drawable.check,
-                    R.color.green_ok,
-                    context.getString(R.string.beacon_detail_ok)
+                    R.drawable.check, R.color.green_ok, context.getString(R.string.beacon_detail_ok)
                 )  // OK
             }
             binding.ivBeaconStatus.setImageResource(imageResource)

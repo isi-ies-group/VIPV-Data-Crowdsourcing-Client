@@ -22,10 +22,7 @@ enum class ApiUserSessionState {
     NEVER_LOGGED_IN,  // user has never logged in
 
     // errors
-    ERROR_BAD_IDENTITY,
-    ERROR_BAD_PASSWORD,
-    ERROR_BAD_TOKEN,
-    CONNECTION_ERROR,
+    ERROR_BAD_IDENTITY, ERROR_BAD_PASSWORD, ERROR_BAD_TOKEN, CONNECTION_ERROR,
 }
 
 class ApiUserSession {
@@ -85,7 +82,7 @@ class ApiUserSession {
 
     // methods
     fun saveToSharedPreferences(state: ApiUserSessionState? = null) {
-        val state = state?.toString() ?: _knownState.value.toString()
+        val state = state?.toString() ?: "NEVER_LOGGED_IN"
         Log.i("ApiUserSession", "Saving state: $state")
         with(this.sharedPrefs.edit()) {
             putString("username", username)

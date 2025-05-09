@@ -46,24 +46,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="5sp"
-        android:text="@string/beacon_info_incomplete"
         android:gravity="center"
+        android:text="@string/beacon_info_incomplete"
         app:drawableStartCompat="@drawable/check"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/headerIdentifier" />
-
-    <Spinner
-        android:id="@+id/spinnerPosition"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="30sp"
-        android:layout_marginEnd="30sp"
-        android:entries="@array/beacon_positions"
-        android:minHeight="48sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvBeaconStatusMessage" />
 
     <TableLayout
         android:id="@+id/tableLayoutTiltDirection"
@@ -72,7 +60,29 @@
         android:layout_marginHorizontal="30sp"
         android:layout_marginVertical="5sp"
         android:shrinkColumns="0,2"
-        app:layout_constraintTop_toBottomOf="@+id/spinnerPosition">
+        app:layout_constraintTop_toBottomOf="@+id/tvBeaconStatusMessage">
+
+        <TableRow
+            android:id="@+id/tableRowPosition"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="30sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <Spinner
+                android:id="@+id/spinnerPosition"
+                android:layout_width="235dp"
+                android:layout_height="wrap_content"
+                android:layout_span="5"
+                android:entries="@array/beacon_positions"
+                android:minHeight="48sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.0"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tvBeaconStatusMessage" />
+
+        </TableRow>
 
         <TableRow
             android:id="@+id/tableRowTilt"
